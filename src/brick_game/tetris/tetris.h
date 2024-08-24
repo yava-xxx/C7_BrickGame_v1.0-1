@@ -3,12 +3,14 @@
 
 #include <ncurses.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
 #define FIELD_WIDTH 12  // Уменьшаем ширину поля в 2 раза
 #define FIELD_HEIGHT 22
 #define FIGURE_SIZE 4
+#define SCORE_FILE "score.txt"
 
 typedef struct {
   int field[FIELD_HEIGHT][FIELD_WIDTH];
@@ -18,6 +20,8 @@ typedef struct {
   int figureY;
   int score;
   bool isFigureFixed;  // Новый флаг для отслеживания фиксации фигуры
+  int maxScore;
+  int level;
 } TetrisState;
 
 void init_game(TetrisState *state);
@@ -34,5 +38,9 @@ void check_lines(TetrisState *state);
 bool move_figure_down(TetrisState *state);
 void hard_drop(TetrisState *state);
 void fix_figure(TetrisState *state);
+void save_max_score(TetrisState *state);
+void load_max_score(TetrisState *state);
+int get_random_start_position(int figureWidth);
+int get_figure_width(int figure[FIGURE_SIZE][FIGURE_SIZE]);
 
 #endif

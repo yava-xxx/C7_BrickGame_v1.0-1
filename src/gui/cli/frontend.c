@@ -1,7 +1,12 @@
 #include "../../brick_game/tetris/tetris.h"
 
+#define FIELD_OFFSET_X \
+  (FIELD_WIDTH * 2 + 10)  // Отступ для текста справа от поля
+#define FIGURE_OFFSET_X (FIELD_OFFSET_X + 15)  // Отступ для следующей фигуры
+
 void draw_game(TetrisState *state) {
   clear();  // Очистка экрана
+
   // Отрисовка поля
   for (int i = 0; i < FIELD_HEIGHT; i++) {
     for (int j = 0; j < FIELD_WIDTH; j++) {
@@ -22,22 +27,29 @@ void draw_game(TetrisState *state) {
     }
   }
 
-  // Отображение счета
-  mvprintw(0, FIELD_WIDTH * 2 + 3, "Score: %d", state->score);
+  // Отображение счета и максимального счета
+  mvprintw(0, FIELD_OFFSET_X, "Score: %d", state->score);
+  mvprintw(1, FIELD_OFFSET_X, "Max: %s", state->maxScore > 0 ? "" : "-");
+  if (state->maxScore > 0) {
+    mvprintw(1, FIELD_OFFSET_X + 7, "%d", state->maxScore);
+  }
+  mvprintw(2, FIELD_OFFSET_X, "Level: %d", state->level);
 
   // Отрисовка следующей фигуры
   draw_next_figure(state);
+
+  refresh();  // Обновление экрана
 }
 
 void draw_next_figure(TetrisState *state) {
-  mvprintw(1, FIELD_WIDTH * 2 + 3, "Next:");
+  mvprintw(0, FIGURE_OFFSET_X, "Next:");
 
   for (int i = 0; i < FIGURE_SIZE; i++) {
     for (int j = 0; j < FIGURE_SIZE; j++) {
       if (state->nextFigure[i][j] == 1) {
-        mvprintw(2 + i, (FIELD_WIDTH * 2 + 3) + j * 2, "[]");
+        mvprintw(1 + i, FIGURE_OFFSET_X + j * 2, "[]");
       } else {
-        mvprintw(2 + i, (FIELD_WIDTH * 2 + 3) + j * 2, "  ");
+        mvprintw(1 + i, FIGURE_OFFSET_X + j * 2, "  ");
       }
     }
   }
@@ -62,8 +74,7 @@ void draw_game_over_screen(TetrisState *state) {
 }
 
 void draw_pause_screen() {
-  clear();
-  mvprintw(FIELD_HEIGHT / 2, FIELD_WIDTH - 6, "PAUSE");
+  mvprintw(FIELD_HEIGHT - 1, FIELD_WIDTH * 2 + 3, "PAUSE");
   refresh();
 }
 
@@ -147,8 +158,13 @@ int main() {
         }
         break;
     }
-
-    if (timer++ >= 10) {
+    // Период ожидания обновляется в зависимости от уровня
+    int delay =
+        12 - (state.level - 1);  // Уменьшение задержки на 50 мс за уровень
+    if (delay < 2) {
+      delay = 2;  // Минимальная задержка
+    }
+    if (timer++ >= delay) {
       // Проверяем, может ли фигура двигаться вниз
       if (!move_figure_down(&state)) {
         // Если не может - фиксируем фигуру

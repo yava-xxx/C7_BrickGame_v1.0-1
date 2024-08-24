@@ -14,11 +14,41 @@ void init_game(TetrisState *state) {
   state->figureX = FIELD_WIDTH / 2 - FIGURE_SIZE / 2;
   state->figureY = 1;
   state->score = 0;  // Инициализация счета нулем
+  state->level = 1;
   srand(time(NULL));
 
   // Генерация следующей фигуры и установка её как текущей
   generate_next_figure(state);
   spawn_current_figure(state);
+
+  // Загрузка максимального счета
+  load_max_score(state);
+}
+
+// Функция для загрузки максимального счета из файла
+void load_max_score(TetrisState *state) {
+  FILE *file = fopen(SCORE_FILE, "r");
+  if (file) {
+    if (fscanf(file, "%d", &state->maxScore) != 1) {
+      state->maxScore = 0;  // Если файл пустой или данные некорректны
+    }
+    fclose(file);
+  } else {
+    state->maxScore =
+        0;  // Файл не существует, устанавливаем начальное значение
+    save_max_score(state);  // Создаем файл и записываем начальное значение
+  }
+}
+
+// Функция для сохранения максимального счета в файл
+void save_max_score(TetrisState *state) {
+  FILE *file = fopen(SCORE_FILE, "w");
+  if (file) {
+    fprintf(file, "%d", state->maxScore);
+    fclose(file);
+  } else {
+    perror("Error opening file for writing");
+  }
 }
 
 // Генерация следующей фигуры
@@ -54,8 +84,11 @@ bool spawn_current_figure(TetrisState *state) {
   // Сброс состояния фиксации фигуры
   state->isFigureFixed = false;
 
-  // Устанавливаем начальную позицию фигуры
-  state->figureX = FIELD_WIDTH / 2 - FIGURE_SIZE / 2;
+  // Определение ширины текущей фигуры
+  int figureWidth = get_figure_width(state->currentFigure);
+
+  // Определение начальной позиции по горизонтали
+  state->figureX = get_random_start_position(figureWidth);
   state->figureY = 1;
 
   // Проверка на возможность размещения новой фигуры
@@ -68,10 +101,40 @@ bool spawn_current_figure(TetrisState *state) {
     }
   }
 
-  // Генерируем следующую фигуру для будущего
+  // Генерация следующей фигуры для будущего
   generate_next_figure(state);
 
   return true;  // Новая фигура успешно размещена
+}
+
+// Определение ширины фигуры
+int get_figure_width(int figure[FIGURE_SIZE][FIGURE_SIZE]) {
+  int width = 0;
+  for (int j = 0; j < FIGURE_SIZE; j++) {
+    for (int i = 0; i < FIGURE_SIZE; i++) {
+      if (figure[i][j] == 1) {
+        width = j + 1;
+        break;
+      }
+    }
+  }
+  return width;
+}
+
+int get_random_start_position(int figureWidth) {
+  // Учитываем границы поля
+  int minX = 1;
+  int maxX = FIELD_WIDTH - figureWidth -
+             1;  // FIELD_WIDTH - 1 для исключения крайних границ
+
+  // Если фигура шире доступного диапазона, начинаем с минимальной позиции
+  if (maxX < minX) {
+    return minX;  // Можно вернуться к начальной позиции, если фигура больше
+                  // поля
+  }
+
+  // Генерация случайного числа в допустимом диапазоне
+  return minX + rand() % (maxX - minX + 1);
 }
 
 void fix_figure(TetrisState *state) {
@@ -87,7 +150,6 @@ void fix_figure(TetrisState *state) {
 // Проверка и удаление полных линий
 void check_lines(TetrisState *state) {
   int linesCleared = 0;
-
   for (int i = 1; i < FIELD_HEIGHT - 1;
        i++) {  // FIELD_HEIGHT-1 чтобы не учитывать нижнюю границу
     bool lineFull = true;
@@ -107,7 +169,6 @@ void check_lines(TetrisState *state) {
       }
     }
   }
-
   // Обновление счета
   switch (linesCleared) {
     case 1:
@@ -122,6 +183,14 @@ void check_lines(TetrisState *state) {
     case 4:
       state->score += 1500;
       break;
+  }
+  if (state->score / 600 > state->level - 1 && state->level < 10) {
+    state->level++;
+  }
+
+  if (state->score > state->maxScore) {
+    state->maxScore = state->score;
+    save_max_score(state);
   }
 }
 
