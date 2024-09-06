@@ -1,9 +1,5 @@
 #include "../../brick_game/tetris/tetris.h"
 
-#define FIELD_OFFSET_X \
-  (FIELD_WIDTH * 2 + 10)  // Отступ для текста справа от поля
-#define FIGURE_OFFSET_X (FIELD_OFFSET_X + 15)  // Отступ для следующей фигуры
-
 void draw_game(TetrisState *state) {
   clear();  // Очистка экрана
 
@@ -11,7 +7,9 @@ void draw_game(TetrisState *state) {
   for (int i = 0; i < FIELD_HEIGHT; i++) {
     for (int j = 0; j < FIELD_WIDTH; j++) {
       if (state->field[i][j] == 1) {
+        attron(COLOR_PAIR(1));
         mvprintw(i, j * 2, "[]");  // Отрисовка блока поля
+        attroff(COLOR_PAIR(1));
       } else {
         mvprintw(i, j * 2, "  ");  // Пустое место
       }
@@ -37,6 +35,17 @@ void draw_game(TetrisState *state) {
 
   // Отрисовка следующей фигуры
   draw_next_figure(state);
+
+  attron(COLOR_PAIR(2));
+  mvprintw(5, FIELD_OFFSET_X, "Controls:");
+  mvprintw(6, FIELD_OFFSET_X, "  v: Move Down Full");
+  mvprintw(7, FIELD_OFFSET_X, "  ^: Rotate");
+  mvprintw(8, FIELD_OFFSET_X, "  <: Move Left");
+  mvprintw(9, FIELD_OFFSET_X, "  >: Move Right");
+  mvprintw(10, FIELD_OFFSET_X, "  s: Move Down Boost");
+  mvprintw(11, FIELD_OFFSET_X, "  p: Pause");
+  mvprintw(12, FIELD_OFFSET_X, "  q: Quit");
+  attroff(COLOR_PAIR(2));
 
   refresh();  // Обновление экрана
 }
@@ -66,7 +75,6 @@ void draw_game_over_screen(TetrisState *state) {
   mvprintw(FIELD_HEIGHT / 2 - 1, FIELD_WIDTH - 8, "GAME OVER");
   mvprintw(FIELD_HEIGHT / 2, FIELD_WIDTH - 8, "SCORE = %d", state->score);
 
-  // Разделяем сообщение на две строки для корректного отображения
   mvprintw(FIELD_HEIGHT / 2 + 1, FIELD_WIDTH - 10, "PRESS q TO QUIT OR");
   mvprintw(FIELD_HEIGHT / 2 + 2, FIELD_WIDTH - 10, "SPACE TO PLAY AGAIN");
 
@@ -78,6 +86,26 @@ void draw_pause_screen() {
   refresh();
 }
 
+void updateCurrentState(TetrisState *state) {
+  switch (state->state) {
+    case START:
+      draw_start_screen();
+      break;
+    case PLAYING:
+      draw_game(state);
+      break;
+    case PAUSED:
+      draw_pause_screen();
+      break;
+    case GAME_OVER:
+      draw_game_over_screen(state);
+      break;
+    case EXIT:
+      endwin();
+      break;
+  }
+}
+
 int main() {
   TetrisState state;
 
@@ -86,108 +114,19 @@ int main() {
   noecho();
   cbreak();
   keypad(stdscr, TRUE);
-  timeout(80);  // Ожидание ввода 80ms
-
-  // Отключение обработки мышиных событий
-  mousemask(0, NULL);
-
-  draw_start_screen();
-  int ch;
-  while ((ch = getch()) != ' ') {
-    if (ch ==
-        'q') {  // Добавляем выход из игры при нажатии 'q' на начальном экране
-      endwin();
-      return 0;
-    }
-  }
-
-  init_game(&state);
-
+  timeout(80);         // Ожидание ввода 80ms
+  mousemask(0, NULL);  // Отключение обработки мыши
+  start_color();
+  init_pair(1, COLOR_BLACK, COLOR_BLACK);
+  init_pair(2, COLOR_GREEN, COLOR_BLACK);
+  state.state = START;
   int timer = 0;
-  bool gameOver = false;
-  bool paused = false;
-
-  while (1) {
-    if (gameOver) {
-      draw_game_over_screen(&state);
-      ch = getch();
-      if (ch == 'q') {
-        break;  // Выход из игры на экране завершения
-      } else if (ch == ' ') {
-        init_game(&state);
-        gameOver = false;
-      }
-      continue;
-    }
-
-    if (paused) {
-      draw_pause_screen();
-      ch = getch();
-      if (ch == 'q') {
-        break;  // Выход из игры в режиме паузы
-      } else if (ch == 'p') {
-        paused = false;
-      }
-      continue;
-    }
-
-    draw_game(&state);
+  int ch;
+  while (state.state != EXIT) {
     ch = getch();
-
-    switch (ch) {
-      case 'q':
-      case 'Q':
-        endwin();
-        return 0;
-      case 'p':
-      case 'P':
-        paused = true;
-        break;
-      case KEY_LEFT:
-        move_figure_horizontal(&state, -1);
-        break;
-      case KEY_RIGHT:
-        move_figure_horizontal(&state, 1);
-        break;
-      case KEY_UP:
-        rotate_figure(&state);
-        break;
-      case KEY_DOWN:
-        if (!state.isFigureFixed) {
-          hard_drop(&state);
-        }
-        break;
-    }
-    // Период ожидания обновляется в зависимости от уровня
-    int delay =
-        12 - (state.level - 1);  // Уменьшение задержки на 50 мс за уровень
-    if (delay < 2) {
-      delay = 2;  // Минимальная задержка
-    }
-    if (timer++ >= delay) {
-      // Проверяем, может ли фигура двигаться вниз
-      if (!move_figure_down(&state)) {
-        // Если не может - фиксируем фигуру
-        if (!state.isFigureFixed) {
-          fix_figure(&state);  // Фиксируем фигуру на поле
-          state.isFigureFixed = true;
-        }
-
-        // Проверяем линии
-        check_lines(&state);
-
-        // Спавним новую фигуру, если старая зафиксирована
-        if (state.isFigureFixed) {
-          if (!spawn_current_figure(&state)) {
-            gameOver = true;  // Игра заканчивается, если спавн невозможен
-          } else {
-            state.isFigureFixed =
-                false;  // Флаг сбрасывается после успешного спавна
-          }
-        }
-      }
-      timer = 0;
-    }
+    userInput(&state, ch);
+    updateCurrentState(&state);
+    move_and_level_check(&state, &timer);
   }
   endwin();
   return 0;

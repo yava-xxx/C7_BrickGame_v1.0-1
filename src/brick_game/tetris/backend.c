@@ -12,9 +12,9 @@ void init_game(TetrisState *state) {
     }
   }
   state->figureX = FIELD_WIDTH / 2 - FIGURE_SIZE / 2;
-  state->figureY = 1;
-  state->score = 0;  // Инициализация счета нулем
-  state->level = 1;
+  state->figureY = 1;  // начальная позиция
+  state->score = 0;    // Инициализация счета нулем
+  state->level = 1;    // Ставим 1 уровень
   srand(time(NULL));
 
   // Генерация следующей фигуры и установка её как текущей
@@ -62,7 +62,6 @@ void generate_next_figure(TetrisState *state) {
       {{0, 1, 1, 2}, {1, 1, 0, 2}, {0, 0, 0, 2}, {2, 2, 2, 2}},  // rightSnake
       {{0, 1, 0, 2}, {1, 1, 1, 2}, {0, 0, 0, 2}, {2, 2, 2, 2}}  // centralFigure
   };
-
   // Генерация новой следующей фигуры
   int index = rand() % 7;
   for (int i = 0; i < FIGURE_SIZE; i++) {
@@ -71,7 +70,6 @@ void generate_next_figure(TetrisState *state) {
     }
   }
 }
-
 // Спавн текущей фигуры из следующей
 bool spawn_current_figure(TetrisState *state) {
   // Копируем следующую фигуру как текущую
@@ -80,17 +78,13 @@ bool spawn_current_figure(TetrisState *state) {
       state->currentFigure[i][j] = state->nextFigure[i][j];
     }
   }
-
   // Сброс состояния фиксации фигуры
   state->isFigureFixed = false;
-
   // Определение ширины текущей фигуры
   int figureWidth = get_figure_width(state->currentFigure);
-
   // Определение начальной позиции по горизонтали
   state->figureX = get_random_start_position(figureWidth);
   state->figureY = 1;
-
   // Проверка на возможность размещения новой фигуры
   for (int y = 0; y < FIGURE_SIZE; y++) {
     for (int x = 0; x < FIGURE_SIZE; x++) {
@@ -100,10 +94,8 @@ bool spawn_current_figure(TetrisState *state) {
       }
     }
   }
-
   // Генерация следующей фигуры для будущего
   generate_next_figure(state);
-
   return true;  // Новая фигура успешно размещена
 }
 
@@ -123,20 +115,19 @@ int get_figure_width(int figure[FIGURE_SIZE][FIGURE_SIZE]) {
 
 int get_random_start_position(int figureWidth) {
   // Учитываем границы поля
+  int return_val;
   int minX = 1;
-  int maxX = FIELD_WIDTH - figureWidth -
-             1;  // FIELD_WIDTH - 1 для исключения крайних границ
-
+  int maxX = FIELD_WIDTH - figureWidth - 1;
   // Если фигура шире доступного диапазона, начинаем с минимальной позиции
   if (maxX < minX) {
-    return minX;  // Можно вернуться к начальной позиции, если фигура больше
-                  // поля
+    return_val = minX;
   }
-
-  // Генерация случайного числа в допустимом диапазоне
-  return minX + rand() % (maxX - minX + 1);
+  // Генерация случайного числа в допустимом диапазоне]
+  return_val = minX + rand() % (maxX - minX + 1);
+  return return_val;
 }
 
+// Функция для фиксации фигуры на поле
 void fix_figure(TetrisState *state) {
   for (int y = 0; y < FIGURE_SIZE; y++) {
     for (int x = 0; x < FIGURE_SIZE; x++) {
@@ -150,11 +141,9 @@ void fix_figure(TetrisState *state) {
 // Проверка и удаление полных линий
 void check_lines(TetrisState *state) {
   int linesCleared = 0;
-  for (int i = 1; i < FIELD_HEIGHT - 1;
-       i++) {  // FIELD_HEIGHT-1 чтобы не учитывать нижнюю границу
+  for (int i = 1; i < FIELD_HEIGHT - 1; i++) {
     bool lineFull = true;
-    for (int j = 1; j < FIELD_WIDTH - 1;
-         j++) {  // Проверяем все колонки, кроме границ
+    for (int j = 1; j < FIELD_WIDTH - 1; j++) {
       if (state->field[i][j] == 0) {
         lineFull = false;
         break;
@@ -184,10 +173,11 @@ void check_lines(TetrisState *state) {
       state->score += 1500;
       break;
   }
+  // Повышаем уровень
   if (state->score / 600 > state->level - 1 && state->level < 10) {
     state->level++;
   }
-
+  // Сохраняем максимальный счет
   if (state->score > state->maxScore) {
     state->maxScore = state->score;
     save_max_score(state);
@@ -211,10 +201,10 @@ bool move_figure_down(TetrisState *state) {
       if (state->currentFigure[i][j] == 1 &&
           state->field[state->figureY + i + 1][state->figureX + j] == 1) {
         collision = true;
+        break;
       }
     }
   }
-
   if (!collision) {
     state->figureY++;
   }
@@ -232,10 +222,10 @@ void move_figure_horizontal(TetrisState *state, int dx) {
       if (state->currentFigure[i][j] == 1 &&
           state->field[state->figureY + i][state->figureX + j + dx] == 1) {
         collision = true;
+        break;
       }
     }
   }
-
   // Если нет столкновения, перемещаем фигуру
   if (!collision) {
     state->figureX += dx;
@@ -267,6 +257,7 @@ void rotate_figure(TetrisState *state) {
       if (state->currentFigure[i][j] == 1 &&
           state->field[state->figureY + i][state->figureX + j] == 1) {
         collision = true;
+        break;
       }
     }
   }
@@ -278,5 +269,93 @@ void rotate_figure(TetrisState *state) {
         state->currentFigure[i][j] = tempFigure[i][j];
       }
     }
+  }
+}
+
+// Обработка ввода пользователя
+void userInput(TetrisState *state, int ch) {
+  if (state->state == START) {
+    if (ch == ' ') {
+      init_game(state);
+      state->state = PLAYING;
+    } else if (ch == 'q') {
+      state->state = EXIT;
+    }
+  } else if (state->state == GAME_OVER) {
+    if (ch == ' ') {
+      init_game(state);
+      state->state = PLAYING;
+    } else if (ch == 'q') {
+      state->state = EXIT;
+    }
+  } else if (state->state == PAUSED) {
+    if (ch == 'p' || ch == 'P') {
+      state->state = PLAYING;
+    } else if (ch == 'q') {
+      state->state = EXIT;
+    }
+  } else if (state->state == PLAYING) {
+    switch (ch) {
+      case 'q':
+      case 'Q':
+        state->state = EXIT;
+        break;
+      case 'p':
+      case 'P':
+        state->state = PAUSED;
+        break;
+      case KEY_LEFT:
+        move_figure_horizontal(state, -1);
+        break;
+      case KEY_RIGHT:
+        move_figure_horizontal(state, 1);
+        break;
+      case KEY_UP:
+        rotate_figure(state);
+        break;
+      case KEY_DOWN:
+        if (!state->isFigureFixed) {
+          hard_drop(state);
+        }
+        break;
+      case 's':
+        if (!state->isFigureFixed) {
+          move_figure_down(state);
+        }
+        break;
+    }
+  }
+}
+
+// Кадровка игры
+void move_and_level_check(TetrisState *state, int *timer) {
+  // Период ожидания обновляется в зависимости от уровня
+  int delay =
+      12 - (state->level - 1);  // Уменьшение задержки на 50 мс за уровень
+  if (delay <= 2) {
+    delay = 2;  // Минимальная задержка
+  }
+  if (state->state == PLAYING && (*timer)++ >= delay) {
+    // Проверяем, может ли фигура двигаться вниз
+    if (!move_figure_down(state)) {
+      // Если не может - фиксируем фигуру
+      if (!state->isFigureFixed) {
+        fix_figure(state);  // Фиксируем фигуру на поле
+        state->isFigureFixed = true;
+      }
+      // Проверяем линии
+      check_lines(state);
+      // Спавним новую фигуру, если старая зафиксирована
+      if (state->isFigureFixed) {
+        if (!spawn_current_figure(state)) {
+          state->state =
+              GAME_OVER;  // Игра заканчивается, если спавн невозможен
+        } else {
+          state->isFigureFixed =
+              false;  // Флаг сбрасывается после успешного спавна
+        }
+      }
+    }
+    (*timer) = 0;  // Сбрасываем таймер
   }
 }
